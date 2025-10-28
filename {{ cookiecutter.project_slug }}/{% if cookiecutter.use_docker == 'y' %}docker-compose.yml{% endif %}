@@ -1,0 +1,36 @@
+services:
+  {% if cookiecutter.use_celery == 'y' %}
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+  {% endif %}
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port {{ cookiecutter.backend_port }}
+    ports:
+      - "{{ cookiecutter.backend_port }}:{{ cookiecutter.backend_port }}"
+    environment:
+    - ENVIRONMENT=${ENVIRONMENT}
+
+volumes:
+  {% if cookiecutter.use_celery == 'y' %}
+  redis_data:
+  {% endif %}
+
+networks:
+  app-network:
+    driver: bridge

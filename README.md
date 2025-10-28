@@ -1,1 +1,3 @@
-# fastapi-cookiecutter-template
+# TM - FastAPI Template
+
+## Usage

@@ -1,0 +1,12 @@
+{
+  "project_name": "TM - FastAPI template",
+  "project_slug": "{{ cookiecutter.project_name.lower().replace(' ', '-') }}",
+  "project_description": "FastAPI template for new projects. Built by Thales Meier @TM",
+  "author": "Thales Meier",
+  "email": "meier.thales@gmail.com",
+  "python_version": "3.14",
+  "backend_port": 8000,
+  "ai_project": "y",
+  "use_celery": "y",
+  "use_docker": "y"
+}
