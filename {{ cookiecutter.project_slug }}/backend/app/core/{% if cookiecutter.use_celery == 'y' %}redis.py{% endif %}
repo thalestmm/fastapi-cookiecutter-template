@@ -1,0 +1,47 @@
+"""
+Redis connection and configuration utilities.
+"""
+import logging
+
+logger = logging.getLogger(__name__)
+
+import redis
+
+from typing import Optional, Callable, Any
+
+from app.core.config import settings
+
+
+# Redis connection instance
+_redis_connection: Optional[redis.Redis] = None
+
+def get_redis_connection() -> redis.Redis:
+    """
+    Get or create a Redis connection.
+
+    Singleton pattern is used to ensure that only one connection is created and reused.
+    
+    Returns:
+        redis.Redis: Redis connection instance
+    """
+    global _redis_connection
+    
+    if _redis_connection is None:
+        _redis_connection = redis.Redis(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            db=settings.REDIS_DB,
+            password=settings.REDIS_PASSWORD,
+            decode_responses=False,  # RQ needs binary data
+            health_check_interval=30
+        )
+        
+        # Test connection
+        try:
+            _redis_connection.ping()
+            logger.info(f"Connected to Redis at {settings.REDIS_HOST}:{settings.REDIS_PORT}")
+        except redis.ConnectionError as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            raise
+    
+    return _redis_connection
