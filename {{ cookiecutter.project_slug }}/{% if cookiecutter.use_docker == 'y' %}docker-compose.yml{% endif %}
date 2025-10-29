@@ -51,11 +51,34 @@ services:
       start_period: 10s
     restart: unless-stopped
   
-  celery_worker:
+  worker:
     build: 
       context: .
       dockerfile: backend/Dockerfile
     command: celery -A app.worker.main worker --loglevel=info --pool=solo
+    working_dir: /app
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - PYTHONPATH=/app
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASS:-admin}@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app:z
+    restart: unless-stopped
+  
+  scheduler:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A app.worker.main beat --loglevel=info -s /app/celerybeat-schedule
     working_dir: /app
     environment:
       - ENVIRONMENT=${ENVIRONMENT:-development}
@@ -95,7 +118,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      celery_worker:
+      worker:
+        condition: service_started
+      scheduler:
         condition: service_started
     volumes:
       - ./backend:/app:z

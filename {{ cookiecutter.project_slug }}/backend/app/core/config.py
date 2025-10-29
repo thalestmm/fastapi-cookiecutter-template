@@ -32,12 +32,17 @@ class Settings(BaseSettings):
     DATABASE_URL: str = Field(
         default="postgresql://postgres:postgres@localhost:5432/{{ cookiecutter.project_slug.replace('-', '_') }}"
     )
-
     {% endif %}
+
     {% if cookiecutter.ai_project == 'y' %}
     # LLM Configuration
     LLM_MODEL: Optional[str] = Field(default="gpt-5-nano")
     OPENAI_API_KEY: Optional[str] = Field(default=None)
+
+    # LangSmith Configuration
+    LANGSMITH_PROJECT: Optional[str] = Field(default="your-langsmit-project")
+    LANGSMITH_API_KEY: Optional[str] = Field(default=None)
+    LANGSMITH_TRACING_V2: bool = Field(default=True)
     {% endif %}
 
     {% if cookiecutter.use_celery == 'y' %}

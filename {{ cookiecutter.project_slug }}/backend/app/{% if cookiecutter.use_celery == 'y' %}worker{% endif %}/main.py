@@ -4,7 +4,7 @@ Celery worker configuration and application instance.
 import logging
 from celery import Celery
 from celery.signals import worker_ready, worker_shutdown
-
+from celery.schedules import crontab
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -41,6 +41,19 @@ celery_app.conf.update(
     broker_connection_retry=True,
     broker_connection_max_retries=10,
 )
+
+# Celery Beat Configuration
+celery_app.conf.beat_schedule = {
+    # TODO: Replace with the desired tasks
+    'run-task-every-minute': {
+        'task': 'app.worker.tasks.long_running_task',
+        'schedule': 60.0,
+    },
+    'run-task-on-schedule': {
+        'task': 'app.worker.tasks.long_running_task',
+        'schedule': crontab(hour=12, minute=0),
+    },
+}
 
 # Auto-discover tasks in the tasks module
 celery_app.autodiscover_tasks(['app.worker'], related_name='tasks')
