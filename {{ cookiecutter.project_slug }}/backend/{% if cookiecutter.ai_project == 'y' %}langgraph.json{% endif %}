@@ -1,0 +1,8 @@
+{
+    "dependencies": ["."],
+    "graphs": {
+        "base-agent": "./app/graphs/workflow.py:graph"
+    },
+    "env": "../.env",
+    "image_distro": "wolfi"
+}
