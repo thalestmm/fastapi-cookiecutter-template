@@ -1,0 +1,56 @@
+import logging
+
+logger = logging.get_logger(__name__)
+
+from supabase import create_client, Client
+
+from typing import Optional
+
+from app.core.config import settings
+
+# Admin client - uses service role key, bypassing RLS
+_admin_client: Optional[Client] = None
+
+def get_admin_client() -> Client:
+    """
+    Get the Supabase admin client (service role).
+    This client bypasses Row Level Security (RLS) and should be used carefully.
+
+    Args:
+        None
+    
+    Returns:
+        A Supabase admin client with RLS bypass
+    """
+    logger.info("Instantiating supabase admin client")
+
+    global _admin_client
+
+    if _admin_client is None:
+        _admin_client = create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+    
+    return _admin_client
+    
+
+def create_user_client(access_token: str) -> Client:
+    """
+    Create a user-scoped Supabase client with the provided acces token.
+    This client has the RLS policies enforced.
+
+    Args:
+        access_token: The user's JWT access token
+
+    Returns:
+        A Supabase client configured with the user's access token
+    # Create client with anon key
+    client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
+
+    # Set the authorization header directly on the postgrest and auth clients
+    # This avoids the network call that set_session() makes
+    client.postgrest.auth(access_token)
+
+    # For auth operations, we need to set the headers manually
+    if hasattr(client.auth, '_http_client'):
+        client.auth._http_client.headers['Authorization'] = f"Bearer: {access_token}"
+    
+    return client
