@@ -28,8 +28,6 @@ alwaysApply: true
   - Session management
   - Temporary data storage
 {% endif %}
-
-
 {% if cookiecutter.ai_project %}
 ### **AI & LLM**
 - **LLM Framework**: LangGraph
@@ -56,16 +54,10 @@ alwaysApply: true
 ### **External Integrations**
 - **WhatsApp**: Meta WhatsApp Business API
   - Webhook handling via FastAPI
-  - Message sending via requests/httpx
+  - Message sending via httpx
 - **HTTP Client**: httpx (async-first)
 - **API Validation**: Pydantic v2
 Customer-Specific external integrations:
-- **RDStation**
-- **ExpoCRM**
-- **Whatsapp Business API**
-- **Proprietary System**
-- **Stripe**
-- **ASAAS**
 
 ### **Monitoring & Observability**
 - **Logging**: 
