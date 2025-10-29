@@ -1,0 +1,122 @@
+---
+alwaysApply: true
+---
+## Project description
+
+### {{ cookiecutter.project_name }}
+{{ cookiecutter.project_description }}
+
+## Tech Stack
+
+### **Core Framework**
+- **Language**: Python {{ cookiecutter.python_version }}+
+- **Web Framework**: FastAPI 0.120.1+
+- **ASGI Server**: Uvicorn (production)
+
+### **Database & Storage**
+- **Primary Database**: Supabase
+- **Database Client**: Supabase Client
+- **Migrations**: SQL
+
+{% if cookiecutter.use_celery %}
+### **Message Queue & Task Processing**
+- **Queue System**: RabbitMQ
+- **Task Scheduler**: Python Celery
+- **Cache & Session Store**: Redis 7+
+  - Message debouncing buffers
+  - Rate limiting
+  - Session management
+  - Temporary data storage
+{% endif %}
+
+
+{% if cookiecutter.ai_project %}
+### **AI & LLM**
+- **LLM Framework**: LangGraph
+  - Workflow orchestration
+  - Memory management (short/long term)
+  - Tool calling/function invocation
+- **LLM Provider**: 
+  - Primary: OpenAI (GPT-4.1 or GPT-5)
+- **Embeddings**: OpenAI text-embedding-3-small, if necessary
+  - For semantic search in conversation history
+  - Long-term memory retrieval
+
+### **Memory & State Management**
+- **Short-term Memory**: 
+  - Supabase PostgreSQL (persistent storage)
+  - LangGraph memory components (configured to use Supabase PostgreSQL)
+- **Long-term Memory**: 
+  - Supabase PostgreSQL (persistent storage)
+  - Vector embeddings for semantic search (stored in Supabase PostgreSQL)
+- **State Machine**: 
+  - Implemented with LangGraph
+{% endif %}
+
+### **External Integrations**
+- **WhatsApp**: Meta WhatsApp Business API
+  - Webhook handling via FastAPI
+  - Message sending via requests/httpx
+- **HTTP Client**: httpx (async-first)
+- **API Validation**: Pydantic v2
+Customer-Specific external integrations:
+- **RDStation**
+- **ExpoCRM**
+- **Whatsapp Business API**
+- **Proprietary System**
+- **Stripe**
+- **ASAAS**
+
+### **Monitoring & Observability**
+- **Logging**: 
+  - Python standard logging library
+- **Error Tracking**: PostgreSQL
+- **Queue Monitoring**: rq-dashboard
+- **Metrics**: PostgreSQL
+- **Health Checks**: FastAPI built-in + custom endpoints
+
+### **Deployment & Infrastructure**
+- **Containerization**: Docker + Docker Compose
+- **Orchestration**: 
+  - Development: Docker Compose
+  - Production: Up to the client
+- **CI/CD**: GitHub Actions
+- **Secrets Management**: 
+  - Development: .env files
+  - Production: Up to the client
+
+### **Security**
+- **Authentication**: 
+  - Webhook validation (signature verification)
+  - API keys for internal services
+{% if cookiecutter.use_supabase %}
+  - Supabase Auth (If user auth is needed)
+{% endif %}
+- **Rate Limiting**: slowapi (Redis-backed)
+- **Input Validation**: Pydantic models
+- **Secrets**: Never commit to git, use environment variables
+
+## Development best practices
+Prioritize clear, maintainable, and well-documented code to ensure long-term project health. Adhere strictly to established style guides and enforce linting on all code submissions. Write modular, testable components, and favor explicitness over cleverness. Regularly review and refactor code to reduce technical debt. Ensure all changes are accompanied by meaningful commit messages and comprehensive documentation. Strive for simplicity, clarity, and consistency in every aspect of development.
+Design all application components (services, routers, graphs, integrations, etc.) to be loosely coupled and interchangeable. Implement robust, standardized interfaces for each integration and internal module, enabling seamless replacement or extension of functionality without impacting other parts of the system. Always favor abstraction and interface-driven development to maximize flexibility and maintainability.
+
+Always utilize Pydantic models for validating and serializing all input and output data in FastAPI endpoints. Ensure that every API request and response is strictly typed and validated using Pydantic to maintain data integrity and security. Apply Pydantic-based validation consistently for any external integrations or data exchanges. Prioritize building robust, reliable, and predictable systems by leveraging Pydantic’s features for error handling, type enforcement, and clear schema definitions.
+
+All comments, code and documentation must be in English, never Portuguese or other langugage.
+
+Classes: Prefer putting public methods first, followed by protected methods, following by private methods. Member data should in general always be private or protected, unless you have a good reason for it not to be so.
+
+Rationale for putting public methods at the top is that it defines the interface for your class, so anyone perusing your header file should be able to see this information immediately.
+
+In general, private and protected members are less important to most people looking at the header file, unless they are considering modifying the internals of the class. Keeping them "out of the way" ensures this information is maintained only on a need to know basis, one of the more important aspects of encapsulation.
+
+{% if cookiecutter.ai_project %}
+## AI
+The AI orchestration layer must be highly robust, prioritizing the minimization of hallucinations by maintaining tightly scoped and relevant context. Avoid passing extraneous data; instead, leverage runnable configuration to supply only essential values. The development agent should accurately interpret user requests, intelligently map them to tool invocations when appropriate, and manage conversation flow to guide users toward plan upgrades in a natural, context-aware manner. Prompt engineering should focus on clarity, specificity, and the reduction of ambiguity to ensure reliable and actionable outputs.
+{% endif %}
+
+## Communication
+When implementing new features or resolving bugs, provide clear, comprehensive, and step-by-step explanations of your reasoning and actions. Ensure that each decision and change is thoroughly documented, offering detailed summaries that make your process transparent and easy to follow for collaborators and future maintainers.
+
+## Logs
+Prioritize thorough and informative logging at every stage of development. Use appropriate log levels to capture the significance of each event, and include context-rich messages that describe what is happening and why. Effective logs should facilitate debugging, auditing, and understanding of the system’s behavior over time.
