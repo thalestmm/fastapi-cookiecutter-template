@@ -47,7 +47,34 @@ This project uses Python `cookiecutter` as the template manager to generate prod
 
 ## Quick Start
 
-### 1. Install Cookiecutter
+### Method 1: Interactive Generator (Recommended)
+
+If you've cloned this repository, you can use the beautiful interactive generator:
+
+**Quick start with Make** (easiest)
+```bash
+make run
+```
+
+Or build and run manually:
+```bash
+go build -o fastapi-generator main.go
+./fastapi-generator
+```
+
+The interactive generator will guide you through:
+- Project name and description
+- Author information
+- Python version and backend port
+- Feature selection (Docker, PostgreSQL, Supabase, AI, Celery)
+- Automatic virtual environment setup
+- Automatic cookiecutter execution
+
+📖 For a detailed guide with screenshots and troubleshooting, see [GENERATOR_GUIDE.md](GENERATOR_GUIDE.md)
+
+### Method 2: Using Cookiecutter Directly
+
+#### 1. Install Cookiecutter
 
 ```bash
 python -m venv .venv
@@ -55,7 +82,7 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install cookiecutter
 ```
 
-### 2. Generate Your Project
+#### 2. Generate Your Project
 
 ```bash
 cookiecutter https://github.com/thalestmm/fastapi-cookiecutter-template.git
@@ -71,9 +98,9 @@ You'll be prompted to configure:
 - Whether to include Supabase integration
 - Whether to set up AI project structure
 
-### 3. Run Your Project
+## Running Your Project
 
-#### Using Docker Compose (Recommended)
+### Using Docker Compose (Recommended)
 
 ```bash
 cd your-project-name
@@ -94,7 +121,7 @@ The API will be available at:
 - RabbitMQ Management: http://localhost:15672 (if Celery is enabled)
 - Flower Monitoring: http://localhost:5555 (if Celery is enabled)
 
-#### Running Locally
+### Running Locally
 
 ```bash
 cd your-project-name/backend
@@ -393,6 +420,50 @@ alembic init alembic
 alembic revision --autogenerate -m "Initial migration"
 alembic upgrade head
 ```
+
+## Interactive Generator
+
+The interactive generator (`main.go`) provides a beautiful, user-friendly interface for creating new FastAPI projects. Built with Go and [Bubble Tea](https://github.com/charmbracelet/bubbletea), it offers:
+
+### Features
+
+- **Step-by-step guidance**: Clear, focused prompts for each configuration option
+- **Beautiful UI**: Color-coded interface with progress indicators
+- **Smart defaults**: Pre-filled values based on best practices
+- **Feature selection**: Interactive checkboxes for optional components
+- **Validation**: Ensures all required fields are completed
+- **Automated setup**: Creates virtual environment and runs cookiecutter automatically
+- **Real-time feedback**: Shows progress and helpful next steps
+
+### Requirements
+
+- Go 1.25 or higher
+- Python 3.12 or higher
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/thalestmm/fastapi-cookiecutter-template.git
+cd fastapi-cookiecutter-template
+
+# Install Go dependencies
+go mod download
+
+# Build the generator
+go build -o fastapi-generator main.go
+
+# Run it
+./fastapi-generator
+```
+
+### Usage Tips
+
+- Use arrow keys (↑/↓) or vim keys (j/k) to navigate
+- Press Space or Enter to toggle features
+- Press Tab to switch between buttons
+- Press Ctrl+C or q to quit at any time
+- All features can be toggled on/off before confirmation
 
 ## License
 
