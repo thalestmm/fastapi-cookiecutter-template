@@ -1,3 +1,4 @@
+from fastapi import APIRouter
 from app.routers.api import router as api_router
 
 router = APIRouter(prefix="/api", tags=["api"])
