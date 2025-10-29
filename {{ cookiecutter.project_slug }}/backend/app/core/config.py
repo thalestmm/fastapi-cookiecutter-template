@@ -9,7 +9,7 @@ from pydantic import Field
 
 from pathlib import Path
 
-BASE_DIR: Path = Path(__file_).parent.parent.parent
+BASE_DIR: Path = Path(__file__).parent.parent.parent
 ENV_FILE: Path = BASE_DIR / ".env.local"
 
 class Settings(BaseSettings):
