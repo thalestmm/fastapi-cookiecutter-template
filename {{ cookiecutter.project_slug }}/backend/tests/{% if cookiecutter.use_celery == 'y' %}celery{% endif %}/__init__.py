@@ -1,0 +1,2 @@
+"""Celery-specific tests."""
+

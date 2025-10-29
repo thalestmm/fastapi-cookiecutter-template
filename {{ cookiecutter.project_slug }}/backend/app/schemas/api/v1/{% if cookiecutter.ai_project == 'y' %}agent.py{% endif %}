@@ -1,0 +1,66 @@
+"""
+Schema models for LangGraph agent endpoints.
+"""
+from typing import List
+from pydantic import BaseModel, Field
+
+
+class ChatMessage(BaseModel):
+    """Chat message model."""
+    role: str = Field(..., description="Message role (user, assistant, system)")
+    content: str = Field(..., description="Message content")
+
+
+class ChatRequest(BaseModel):
+    """Request model for chat endpoint."""
+    message: str = Field(..., description="User message")
+    conversation_history: List[ChatMessage] = Field(
+        default=[],
+        description="Previous conversation history"
+    )
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "message": "What is 25 * 4?",
+                "conversation_history": []
+            }]
+        }
+    }
+
+
+class ChatResponse(BaseModel):
+    """Response model for chat endpoint."""
+    response: str = Field(..., description="Agent's response")
+    conversation_history: List[ChatMessage] = Field(
+        ...,
+        description="Updated conversation history"
+    )
+
+
+class SimpleQueryRequest(BaseModel):
+    """Simple query request model."""
+    query: str = Field(..., description="User query")
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "query": "What is the capital of France?"
+            }]
+        }
+    }
+
+
+class SimpleQueryResponse(BaseModel):
+    """Simple query response model."""
+    answer: str = Field(..., description="Agent's answer")
+
+
+__all__ = [
+    "ChatMessage",
+    "ChatRequest",
+    "ChatResponse",
+    "SimpleQueryRequest",
+    "SimpleQueryResponse",
+]
+

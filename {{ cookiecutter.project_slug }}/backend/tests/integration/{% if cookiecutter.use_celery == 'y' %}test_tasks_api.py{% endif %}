@@ -1,0 +1,270 @@
+"""
+Integration tests for Celery task API endpoints.
+"""
+import pytest
+from unittest.mock import patch, MagicMock
+from fastapi.testclient import TestClient
+
+
+@pytest.mark.integration
+class TestTaskSubmissionAPI:
+    """Test cases for task submission API."""
+    
+    @patch('app.routers.api.v1.tasks.submit_task')
+    def test_submit_add_task(self, mock_submit, client: TestClient):
+        """
+        Test submitting an add task via API.
+        """
+        mock_result = MagicMock()
+        mock_result.id = "test-task-123"
+        mock_submit.return_value = mock_result
+        
+        response = client.post("/api/v1/tasks/examples/add?x=5&y=3")
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert data["task_id"] == "test-task-123"
+        assert data["status"] == "submitted"
+    
+    @patch('app.routers.api.v1.tasks.submit_task')
+    def test_submit_process_task(self, mock_submit, client: TestClient):
+        """
+        Test submitting a process data task via API.
+        """
+        mock_result = MagicMock()
+        mock_result.id = "test-task-456"
+        mock_submit.return_value = mock_result
+        
+        test_data = {"key": "value", "number": 42}
+        response = client.post("/api/v1/tasks/examples/process", json=test_data)
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert data["task_id"] == "test-task-456"
+        assert data["status"] == "submitted"
+    
+    @patch('app.routers.api.v1.tasks.submit_task')
+    def test_submit_long_running_task(self, mock_submit, client: TestClient):
+        """
+        Test submitting a long-running task via API.
+        """
+        mock_result = MagicMock()
+        mock_result.id = "test-task-789"
+        mock_submit.return_value = mock_result
+        
+        response = client.post("/api/v1/tasks/examples/long-running?duration=10")
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert data["task_id"] == "test-task-789"
+    
+    @patch('app.routers.api.v1.tasks.submit_task')
+    def test_submit_generic_task(self, mock_submit, client: TestClient):
+        """
+        Test submitting a generic task via API.
+        """
+        mock_result = MagicMock()
+        mock_result.id = "test-task-generic"
+        mock_submit.return_value = mock_result
+        
+        payload = {
+            "task_name": "app.worker.tasks.add_numbers",
+            "args": [10, 20],
+            "kwargs": {}
+        }
+        response = client.post("/api/v1/tasks/submit", json=payload)
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert data["task_id"] == "test-task-generic"
+        assert data["status"] == "submitted"
+
+
+@pytest.mark.integration
+class TestTaskStatusAPI:
+    """Test cases for task status API."""
+    
+    @patch('app.routers.api.v1.tasks.get_task_status')
+    def test_get_task_status_pending(self, mock_get_status, client: TestClient):
+        """
+        Test getting status of a pending task.
+        """
+        mock_get_status.return_value = {
+            "task_id": "test-123",
+            "state": "PENDING",
+            "ready": False,
+            "successful": None,
+            "result": None,
+            "error": None,
+        }
+        
+        response = client.get("/api/v1/tasks/test-123")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task_id"] == "test-123"
+        assert data["state"] == "PENDING"
+        assert data["ready"] is False
+    
+    @patch('app.routers.api.v1.tasks.get_task_status')
+    def test_get_task_status_success(self, mock_get_status, client: TestClient):
+        """
+        Test getting status of a successful task.
+        """
+        mock_get_status.return_value = {
+            "task_id": "test-456",
+            "state": "SUCCESS",
+            "ready": True,
+            "successful": True,
+            "result": 42,
+            "error": None,
+        }
+        
+        response = client.get("/api/v1/tasks/test-456")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task_id"] == "test-456"
+        assert data["state"] == "SUCCESS"
+        assert data["ready"] is True
+        assert data["successful"] is True
+        assert data["result"] == 42
+    
+    @patch('app.routers.api.v1.tasks.get_task_status')
+    def test_get_task_status_failure(self, mock_get_status, client: TestClient):
+        """
+        Test getting status of a failed task.
+        """
+        mock_get_status.return_value = {
+            "task_id": "test-789",
+            "state": "FAILURE",
+            "ready": True,
+            "successful": False,
+            "result": None,
+            "error": "Task failed with error",
+        }
+        
+        response = client.get("/api/v1/tasks/test-789")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task_id"] == "test-789"
+        assert data["state"] == "FAILURE"
+        assert data["error"] is not None
+
+
+@pytest.mark.integration
+class TestTaskRevocationAPI:
+    """Test cases for task revocation API."""
+    
+    @patch('app.routers.api.v1.tasks.revoke_task')
+    def test_revoke_task(self, mock_revoke, client: TestClient):
+        """
+        Test revoking a task.
+        """
+        mock_revoke.return_value = {
+            "task_id": "test-revoke-123",
+            "status": "revoked",
+        }
+        
+        response = client.delete("/api/v1/tasks/test-revoke-123")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["task_id"] == "test-revoke-123"
+        assert data["status"] == "revoked"
+    
+    @patch('app.routers.api.v1.tasks.revoke_task')
+    def test_revoke_task_with_terminate(self, mock_revoke, client: TestClient):
+        """
+        Test revoking a task with terminate flag.
+        """
+        mock_revoke.return_value = {
+            "task_id": "test-revoke-456",
+            "status": "revoked",
+        }
+        
+        response = client.delete("/api/v1/tasks/test-revoke-456?terminate=true")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "revoked"
+        mock_revoke.assert_called_once_with("test-revoke-456", terminate=True)
+
+
+@pytest.mark.integration
+class TestMonitoringAPI:
+    """Test cases for monitoring API endpoints."""
+    
+    @patch('app.routers.api.v1.tasks.get_active_tasks')
+    def test_get_active_tasks(self, mock_get_active, client: TestClient):
+        """
+        Test getting active tasks.
+        """
+        mock_get_active.return_value = {
+            "active_tasks": {
+                "worker1": [
+                    {
+                        "id": "task-1",
+                        "name": "app.worker.tasks.add_numbers",
+                        "args": [5, 3],
+                    }
+                ]
+            }
+        }
+        
+        response = client.get("/api/v1/tasks/monitoring/active")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "active_tasks" in data
+    
+    @patch('app.routers.api.v1.tasks.get_worker_stats')
+    def test_get_worker_stats(self, mock_get_stats, client: TestClient):
+        """
+        Test getting worker statistics.
+        """
+        mock_get_stats.return_value = {
+            "worker_stats": {
+                "worker1": {
+                    "total": 100,
+                    "active": 1,
+                }
+            }
+        }
+        
+        response = client.get("/api/v1/tasks/monitoring/workers")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "worker_stats" in data
+
+
+@pytest.mark.integration
+class TestTaskAPIValidation:
+    """Test cases for API input validation."""
+    
+    def test_submit_task_missing_task_name(self, client: TestClient):
+        """
+        Test submitting a task without task_name.
+        """
+        payload = {
+            "args": [5, 3],
+            "kwargs": {}
+        }
+        response = client.post("/api/v1/tasks/submit", json=payload)
+        
+        assert response.status_code == 422  # Validation error
+    
+    def test_submit_task_invalid_json(self, client: TestClient):
+        """
+        Test submitting a task with invalid JSON.
+        """
+        response = client.post(
+            "/api/v1/tasks/submit",
+            data="invalid json",
+            headers={"Content-Type": "application/json"}
+        )
+        
+        assert response.status_code == 422
+

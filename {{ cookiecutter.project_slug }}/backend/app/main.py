@@ -34,9 +34,28 @@ async def lifespan(app: FastAPI):
     if settings.ENVIRONMENT == "development":
         logger.info("Environment variables:")
         for key, value in settings.model_dump().items():
-            logger.info(f"{key}: {value}")
+            # Mask sensitive values
+            if any(secret in key.lower() for secret in ["password", "key", "secret", "token"]):
+                logger.info(f"{key}: ******")
+            else:
+                logger.info(f"{key}: {value}")
 
-    # TODO: Add the the application startup logic
+    {% if cookiecutter.use_postgres == 'y' %}
+    # Initialize database connection
+    try:
+        from app.core.database import check_db_connection, init_db
+        
+        if check_db_connection():
+            logger.info("Database connection successful")
+            # Uncomment to auto-create tables (use Alembic in production)
+            # init_db()
+        else:
+            logger.warning("Database connection failed - some features may not work")
+    except Exception as e:
+        logger.error(f"Database initialization error: {str(e)}")
+    
+    {% endif %}
+    # TODO: Add additional application startup logic
 
     logger.info("=" * 80)
     logger.info("Application startup complete")
@@ -63,7 +82,27 @@ app: FastAPI = FastAPI(
     }
 )
 
-# Include CORS middleware
+# Include middleware (order matters - first added is outermost)
+from app.core.middleware import (
+    RequestLoggingMiddleware,
+    ErrorHandlingMiddleware,
+    SecurityHeadersMiddleware,
+    RateLimitMiddleware,
+)
+
+# Security headers (outermost)
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request logging
+app.add_middleware(RequestLoggingMiddleware)
+
+# Rate limiting (optional, uncomment to enable)
+# app.add_middleware(RateLimitMiddleware)
+
+# Error handling
+app.add_middleware(ErrorHandlingMiddleware)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     # TODO: Adjust CORS origins for production
@@ -75,7 +114,12 @@ app.add_middleware(
 
 # Setup routes from all the routers
 from app.routers import router as main_router
+from app.routers.api.v1.health import router as health_router
 
+# Health checks for infrastructure
+app.include_router(health_router)
+
+# API routes (versioned)
 app.include_router(main_router)
 
 @app.get("/")

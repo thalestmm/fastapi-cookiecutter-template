@@ -1,0 +1,202 @@
+"""
+API endpoints for Celery task management.
+
+These endpoints allow you to submit, monitor, and manage background tasks.
+"""
+from typing import Dict, Any
+from fastapi import APIRouter, HTTPException, status
+
+from app.schemas.api.v1.tasks import (
+    TaskSubmitRequest,
+    TaskSubmitResponse,
+    TaskStatusResponse,
+    TaskRevokeResponse,
+)
+from app.worker.client import (
+    submit_task,
+    get_task_status,
+    revoke_task,
+    get_active_tasks,
+    get_worker_stats,
+)
+
+router = APIRouter(prefix="/tasks", tags=["tasks"])
+@router.post("/submit", response_model=TaskSubmitResponse, status_code=status.HTTP_201_CREATED)
+async def submit_new_task(request: TaskSubmitRequest) -> TaskSubmitResponse:
+    """
+    Submit a new background task.
+    
+    Args:
+        request: Task submission details
+    
+    Returns:
+        Task submission confirmation with task ID
+    
+    Example:
+        POST /tasks/submit
+        {
+            "task_name": "app.worker.tasks.add_numbers",
+            "args": [5, 3]
+        }
+    """
+    try:
+        result = submit_task(request.task_name, *request.args, **request.kwargs)
+        return TaskSubmitResponse(task_id=result.id, status="submitted")
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to submit task: {str(e)}"
+        )
+
+
+@router.get("/{task_id}", response_model=TaskStatusResponse)
+async def get_task_status_endpoint(task_id: str) -> TaskStatusResponse:
+    """
+    Get the status and result of a task by its ID.
+    
+    Args:
+        task_id: The task ID to check
+    
+    Returns:
+        Task status information
+    
+    Example:
+        GET /tasks/550e8400-e29b-41d4-a716-446655440000
+    """
+    try:
+        status_info = get_task_status(task_id)
+        return TaskStatusResponse(**status_info)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get task status: {str(e)}"
+        )
+
+
+@router.delete("/{task_id}", response_model=TaskRevokeResponse)
+async def revoke_task_endpoint(task_id: str, terminate: bool = False) -> TaskRevokeResponse:
+    """
+    Revoke/cancel a task.
+    
+    Args:
+        task_id: The task ID to revoke
+        terminate: If True, terminate the task if it's already running
+    
+    Returns:
+        Revocation confirmation
+    
+    Example:
+        DELETE /tasks/550e8400-e29b-41d4-a716-446655440000?terminate=true
+    """
+    try:
+        result = revoke_task(task_id, terminate=terminate)
+        return TaskRevokeResponse(**result)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to revoke task: {str(e)}"
+        )
+
+
+@router.get("/monitoring/active", response_model=Dict[str, Any])
+async def get_active_tasks_endpoint() -> Dict[str, Any]:
+    """
+    Get list of currently active tasks.
+    
+    Returns:
+        Dictionary containing active tasks information
+    
+    Example:
+        GET /tasks/monitoring/active
+    """
+    try:
+        return get_active_tasks()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get active tasks: {str(e)}"
+        )
+
+
+@router.get("/monitoring/workers", response_model=Dict[str, Any])
+async def get_worker_stats_endpoint() -> Dict[str, Any]:
+    """
+    Get statistics about active workers.
+    
+    Returns:
+        Dictionary containing worker statistics
+    
+    Example:
+        GET /tasks/monitoring/workers
+    """
+    try:
+        return get_worker_stats()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get worker stats: {str(e)}"
+        )
+
+
+# Convenience endpoints for specific tasks
+@router.post("/examples/add", response_model=TaskSubmitResponse, status_code=status.HTTP_201_CREATED)
+async def submit_add_task(x: int, y: int) -> TaskSubmitResponse:
+    """
+    Example endpoint: Submit a task to add two numbers.
+    
+    Args:
+        x: First number
+        y: Second number
+    
+    Returns:
+        Task submission confirmation
+    
+    Example:
+        POST /tasks/examples/add?x=5&y=3
+    """
+    result = submit_task("app.worker.tasks.add_numbers", x, y)
+    return TaskSubmitResponse(task_id=result.id, status="submitted")
+
+
+@router.post("/examples/process", response_model=TaskSubmitResponse, status_code=status.HTTP_201_CREATED)
+async def submit_process_task(data: Dict[str, Any]) -> TaskSubmitResponse:
+    """
+    Example endpoint: Submit a task to process data.
+    
+    Args:
+        data: Data to process
+    
+    Returns:
+        Task submission confirmation
+    
+    Example:
+        POST /tasks/examples/process
+        {
+            "key1": "value1",
+            "key2": "value2"
+        }
+    """
+    result = submit_task("app.worker.tasks.process_data", data)
+    return TaskSubmitResponse(task_id=result.id, status="submitted")
+
+
+@router.post("/examples/long-running", response_model=TaskSubmitResponse, status_code=status.HTTP_201_CREATED)
+async def submit_long_running_task(duration: int = 10) -> TaskSubmitResponse:
+    """
+    Example endpoint: Submit a long-running task.
+    
+    Args:
+        duration: How long the task should run (in seconds)
+    
+    Returns:
+        Task submission confirmation
+    
+    Example:
+        POST /tasks/examples/long-running?duration=30
+    """
+    result = submit_task("app.worker.tasks.long_running_task", duration=duration)
+    return TaskSubmitResponse(task_id=result.id, status="submitted")
+
+
+__all__ = ["router"]
+

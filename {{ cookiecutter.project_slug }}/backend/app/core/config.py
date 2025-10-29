@@ -22,6 +22,18 @@ class Settings(BaseSettings):
     LOG_FILE_MAX_BYTES: int = Field(default=10 * 1024 * 1024) # 10MB
     LOG_FILE_BACKUP_COUNT: int = Field(default=5)
 
+    {% if cookiecutter.use_postgres == 'y' %}
+    # PostgreSQL Configuration
+    POSTGRES_USER: str = Field(default="postgres")
+    POSTGRES_PASSWORD: str = Field(default="postgres")
+    POSTGRES_DB: str = Field(default="{{ cookiecutter.project_slug.replace('-', '_') }}")
+    POSTGRES_HOST: str = Field(default="localhost")
+    POSTGRES_PORT: int = Field(default=5432)
+    DATABASE_URL: str = Field(
+        default="postgresql://postgres:postgres@localhost:5432/{{ cookiecutter.project_slug.replace('-', '_') }}"
+    )
+
+    {% endif %}
     {% if cookiecutter.ai_project == 'y' %}
     # LLM Configuration
     LLM_MODEL: Optional[str] = Field(default="gpt-5-nano")
@@ -30,14 +42,20 @@ class Settings(BaseSettings):
 
     {% if cookiecutter.use_celery == 'y' %}
     # Redis Configuration
-    REDIS_HOST: Optional[str] = Field(default="redis")
+    REDIS_HOST: str = Field(default="localhost")
     REDIS_PORT: int = Field(default=6379)
     REDIS_DB: int = Field(default=0)
     REDIS_PASSWORD: Optional[str] = Field(default=None)
 
+    # RabbitMQ Configuration
+    RABBITMQ_USER: str = Field(default="guest")
+    RABBITMQ_PASS: str = Field(default="guest")
+    RABBITMQ_HOST: str = Field(default="localhost")
+    RABBITMQ_PORT: int = Field(default=5672)
+
     # Celery Configuration
-    CELERY_BROKER_URL: Optional[str] = Field(default="redis://localhost:6379/0")
-    CELERY_RESULT_BACKEND: Optional[str] = Field(default="redis://localhost:6379/0")
+    CELERY_BROKER_URL: str = Field(default="amqp://guest:guest@localhost:5672//")
+    CELERY_RESULT_BACKEND: str = Field(default="redis://localhost:6379/0")
     {% endif %}
 
     {% if cookiecutter.use_supabase == 'y' %}

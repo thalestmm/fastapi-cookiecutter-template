@@ -1,0 +1,146 @@
+"""
+Database configuration and session management.
+
+This module provides SQLAlchemy database configuration and session management.
+"""
+import logging
+from typing import Generator
+from contextlib import contextmanager
+
+from sqlalchemy import create_engine, event
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.pool import NullPool
+
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Create SQLAlchemy engine
+engine = create_engine(
+    settings.DATABASE_URL,
+    poolclass=NullPool if settings.ENVIRONMENT == "testing" else None,
+    echo=settings.ENVIRONMENT == "development",
+    pool_pre_ping=True,  # Enable connection health checks
+    pool_size=5,
+    max_overflow=10,
+)
+
+# Create SessionLocal class
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+)
+
+# Create Base class for models
+Base = declarative_base()
+
+
+@event.listens_for(engine, "connect")
+def receive_connect(dbapi_connection, connection_record):
+    """Event listener for database connection."""
+    logger.debug("Database connection established")
+
+
+@event.listens_for(engine, "close")
+def receive_close(dbapi_connection, connection_record):
+    """Event listener for database connection close."""
+    logger.debug("Database connection closed")
+
+
+def get_db() -> Generator[Session, None, None]:
+    """
+    Dependency function to get database session.
+    
+    This function creates a new SQLAlchemy session for each request
+    and closes it when the request is completed.
+    
+    Yields:
+        Session: SQLAlchemy database session
+    
+    Example:
+        ```python
+        from fastapi import Depends
+        from sqlalchemy.orm import Session
+        from app.core.database import get_db
+        
+        @app.get("/items")
+        def read_items(db: Session = Depends(get_db)):
+            return db.query(Item).all()
+        ```
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@contextmanager
+def get_db_context():
+    """
+    Context manager for database sessions.
+    
+    Use this when you need a database session outside of FastAPI dependency injection.
+    
+    Example:
+        ```python
+        from app.core.database import get_db_context
+        
+        with get_db_context() as db:
+            items = db.query(Item).all()
+        ```
+    """
+    db = SessionLocal()
+    try:
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def init_db():
+    """
+    Initialize database by creating all tables.
+    
+    This function should be called on application startup to ensure
+    all tables are created.
+    
+    Note: In production, use Alembic migrations instead.
+    """
+    logger.info("Initializing database...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database initialized successfully")
+
+
+def check_db_connection() -> bool:
+    """
+    Check if database connection is working.
+    
+    Returns:
+        True if connection is successful, False otherwise
+    """
+    try:
+        with engine.connect() as connection:
+            connection.execute("SELECT 1")
+        logger.info("Database connection check successful")
+        return True
+    except Exception as e:
+        logger.error(f"Database connection check failed: {str(e)}")
+        return False
+
+
+__all__ = [
+    "engine",
+    "SessionLocal",
+    "Base",
+    "get_db",
+    "get_db_context",
+    "init_db",
+    "check_db_connection",
+]
+

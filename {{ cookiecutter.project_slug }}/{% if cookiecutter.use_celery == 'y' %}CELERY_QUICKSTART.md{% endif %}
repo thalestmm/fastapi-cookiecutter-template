@@ -1,0 +1,267 @@
+# Celery Quick Start Guide
+
+## 🚀 Getting Started in 5 Minutes
+
+### 1. Start Services
+```bash
+docker-compose up -d
+```
+
+Wait for services to be healthy (~30 seconds).
+
+### 2. Test the Setup
+```bash
+# Make the test script executable
+chmod +x test_celery.sh
+
+# Run the test
+./test_celery.sh
+```
+
+Or manually test:
+```bash
+# Submit a simple task
+curl -X POST "http://localhost:{{ cookiecutter.backend_port }}/api/v1/tasks/examples/add?x=10&y=20"
+
+# Returns: {"task_id": "abc-123", "status": "submitted"}
+
+# Check the result (replace with your task_id)
+curl "http://localhost:{{ cookiecutter.backend_port }}/api/v1/tasks/abc-123"
+```
+
+### 3. View Logs
+```bash
+# Backend logs
+docker-compose logs -f backend
+
+# Worker logs
+docker-compose logs -f celery_worker
+
+# RabbitMQ logs
+docker-compose logs -f rabbitmq
+```
+
+## 📝 Common Tasks
+
+### Submit a Task from Python Code
+
+```python
+from app.worker.client import submit_task, get_task_status
+
+# Submit task
+result = submit_task('app.worker.tasks.add_numbers', 5, 3)
+print(f"Task ID: {result.id}")
+
+# Wait and get result
+output = result.get(timeout=10)
+print(f"Result: {output}")  # Output: 8
+
+# Or check status asynchronously
+status = get_task_status(result.id)
+print(status)
+```
+
+### Create a New Task
+
+**Step 1:** Add to `backend/app/worker/tasks.py`:
+```python
+@celery_app.task(name="app.worker.tasks.send_email")
+def send_email(to: str, subject: str, body: str):
+    """Send an email."""
+    # Your email sending logic
+    send_mail(to, subject, body)
+    return {"status": "sent", "to": to}
+```
+
+**Step 2:** Use in your API:
+```python
+from app.worker.tasks import send_email
+
+@router.post("/send-email")
+async def send_email_endpoint(to: str, subject: str, body: str):
+    # Submit task asynchronously
+    task = send_email.delay(to, subject, body)
+    return {"task_id": task.id}
+```
+
+### Create an API Endpoint for Your Task
+
+Add to `backend/app/routers/api/v1/tasks.py`:
+```python
+@router.post("/send-email", response_model=TaskSubmitResponse)
+async def submit_email_task(
+    to: str,
+    subject: str,
+    body: str
+) -> TaskSubmitResponse:
+    """Submit an email sending task."""
+    result = submit_task(
+        "app.worker.tasks.send_email",
+        to=to,
+        subject=subject,
+        body=body
+    )
+    return TaskSubmitResponse(task_id=result.id)
+```
+
+## 🔍 Monitoring
+
+### RabbitMQ Management UI
+- URL: http://localhost:15672
+- Username: See `RABBITMQ_USER` in `.env.local`
+- Password: See `RABBITMQ_PASS` in `.env.local`
+
+### Check Active Tasks
+```bash
+curl "http://localhost:{{ cookiecutter.backend_port }}/api/v1/tasks/monitoring/active"
+```
+
+### Check Worker Status
+```bash
+curl "http://localhost:{{ cookiecutter.backend_port }}/api/v1/tasks/monitoring/workers"
+```
+
+### Install Flower (Optional)
+```bash
+pip install flower
+celery -A app.worker.main flower
+# Access at http://localhost:5555
+```
+
+## 🐛 Troubleshooting
+
+### Worker Not Starting
+```bash
+# Check logs
+docker-compose logs celery_worker
+
+# Common issues:
+# 1. RabbitMQ not ready - wait longer
+# 2. Wrong CELERY_BROKER_URL - check .env.local
+# 3. Python import errors - check code syntax
+```
+
+### Task Stuck in PENDING
+```bash
+# Verify worker is running
+docker-compose ps celery_worker
+
+# Check task name is correct
+# Task name must match exactly: "app.worker.tasks.task_name"
+
+# Restart worker
+docker-compose restart celery_worker
+```
+
+### Connection Refused
+```bash
+# Check all services are healthy
+docker-compose ps
+
+# Restart services
+docker-compose down
+docker-compose up -d
+```
+
+## 📚 Example Use Cases
+
+### 1. Send Email After User Registration
+```python
+@router.post("/register")
+async def register_user(email: str, password: str):
+    # Create user
+    user = create_user(email, password)
+    
+    # Send welcome email asynchronously
+    send_email.delay(
+        to=email,
+        subject="Welcome!",
+        body="Thank you for registering."
+    )
+    
+    return {"user_id": user.id}
+```
+
+### 2. Process Large File Upload
+```python
+from app.worker.tasks import process_file
+
+@router.post("/upload")
+async def upload_file(file: UploadFile):
+    # Save file
+    file_path = save_upload(file)
+    
+    # Process asynchronously
+    task = process_file.delay(file_path)
+    
+    return {
+        "message": "File uploaded, processing started",
+        "task_id": task.id
+    }
+```
+
+### 3. Generate Report
+```python
+from app.worker.tasks import generate_report
+
+@router.post("/reports")
+async def create_report(report_type: str, params: dict):
+    # Generate report asynchronously
+    task = generate_report.delay(report_type, params)
+    
+    return {
+        "message": "Report generation started",
+        "task_id": task.id,
+        "status_url": f"/api/v1/tasks/{task.id}"
+    }
+```
+
+### 4. Scheduled Task (Periodic)
+```python
+# In worker/main.py, add:
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    'cleanup-every-night': {
+        'task': 'app.worker.tasks.cleanup_old_files',
+        'schedule': crontab(hour=2, minute=0),  # 2 AM daily
+    },
+}
+
+# In worker/tasks.py:
+@celery_app.task(name="app.worker.tasks.cleanup_old_files")
+def cleanup_old_files():
+    """Clean up old files."""
+    # Your cleanup logic
+    return {"deleted": 10}
+
+# Start beat scheduler:
+# celery -A app.worker.main beat --loglevel=info
+```
+
+## 💡 Best Practices
+
+1. **Keep tasks idempotent** - Safe to retry
+2. **Set timeouts** - Prevent hanging tasks
+3. **Log everything** - Easy debugging
+4. **Return serializable data** - JSON only
+5. **Handle errors gracefully** - Try/catch in tasks
+6. **Monitor regularly** - Use Flower or RabbitMQ UI
+7. **Use unique task names** - Avoid conflicts
+8. **Test tasks independently** - Unit test your task functions
+
+## 📖 Next Steps
+
+- Read full documentation: `backend/app/worker/README.md`
+- Check example tasks: `backend/app/worker/tasks.py`
+- Explore API endpoints: http://localhost:{{ cookiecutter.backend_port }}/docs
+- Set up monitoring: Install Flower
+- Configure periodic tasks: Use Celery Beat
+
+## 🔗 Resources
+
+- [Celery Documentation](https://docs.celeryproject.org/)
+- [FastAPI Background Tasks](https://fastapi.tiangolo.com/tutorial/background-tasks/)
+- [RabbitMQ Tutorials](https://www.rabbitmq.com/getstarted.html)
+- [Redis Documentation](https://redis.io/documentation)
+

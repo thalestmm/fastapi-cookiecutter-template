@@ -1,4 +1,24 @@
 services:
+  {% if cookiecutter.use_postgres == 'y' %}
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+  {% endif %}
+
   {% if cookiecutter.use_celery == 'y' %}
   rabbitmq:
     image: rabbitmq:3-management
@@ -18,8 +38,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     command: redis-server --save 60 1 --loglevel warning
@@ -29,46 +47,91 @@ services:
       timeout: 10s
       retries: 5
       start_period: 30s
-    networks:
-      - app-network
   
   celery_worker:
     build: 
       context: .
       dockerfile: backend/Dockerfile
-    command: celery -A worker worker --loglevel=info
+    command: celery -A app.worker.main worker --loglevel=info --pool=solo
     environment:
       - ENVIRONMENT=${ENVIRONMENT}
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     depends_on:
       rabbitmq:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  flower:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A app.worker.main flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT}
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - FLOWER_BASIC_AUTH=${FLOWER_USER}:${FLOWER_PASS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      celery_worker:
+        condition: service_started
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
   {% endif %}
 
   backend:
     build:
       context: .
       dockerfile: backend/Dockerfile
-    command: uvicorn app.main:app --host 0.0.0.0 --port {{ cookiecutter.backend_port }}
+    command: uvicorn app.main:app --host 0.0.0.0 --port {{ cookiecutter.backend_port }} --reload
     ports:
       - "{{ cookiecutter.backend_port }}:{{ cookiecutter.backend_port }}"
     environment:
       - ENVIRONMENT=${ENVIRONMENT}
+    {% if cookiecutter.use_postgres == 'y' %}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    {% endif %}
     {% if cookiecutter.use_celery == 'y' %}
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    {% endif %}
     depends_on:
+    {% if cookiecutter.use_postgres == 'y' %}
+      postgres:
+        condition: service_healthy
+    {% endif %}
+    {% if cookiecutter.use_celery == 'y' %}
       rabbitmq:
         condition: service_healthy
       redis:
         condition: service_healthy
     {% endif %}
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
 
 volumes:
+  {% if cookiecutter.use_postgres == 'y' %}
+  postgres_data:
+  {% endif %}
   {% if cookiecutter.use_celery == 'y' %}
   redis_data:
   rabbitmq_data:
   {% endif %}
-
-networks:
-  app-network:
-    driver: bridge

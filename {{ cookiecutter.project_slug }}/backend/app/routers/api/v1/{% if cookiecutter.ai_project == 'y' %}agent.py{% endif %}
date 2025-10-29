@@ -1,0 +1,149 @@
+"""
+API endpoints for the LangGraph agent.
+"""
+import logging
+from typing import List, Dict, Any
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
+from langchain_core.messages import HumanMessage
+
+from app.schemas.api.v1.agent import (
+    ChatRequest,
+    ChatResponse,
+    ChatMessage,
+    SimpleQueryRequest,
+    SimpleQueryResponse,
+)
+from app.graphs import graph
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/agent", tags=["agent"])
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat_with_agent(request: ChatRequest) -> ChatResponse:
+    """
+    Chat with the LangGraph agent.
+    
+    The agent can use tools like search and calculator to help answer questions.
+    
+    Args:
+        request: Chat request containing the user's message
+    
+    Returns:
+        Agent's response and updated conversation history
+    
+    Example:
+        POST /agent/chat
+        {
+            "message": "What is 25 * 4?",
+            "conversation_history": []
+        }
+    """
+    try:
+        logger.info(f"Received chat request: {request.message[:50]}...")
+        
+        # Create initial state with user message
+        initial_state = {
+            "messages": [HumanMessage(content=request.message)]
+        }
+        
+        # Run the workflow
+        result = graph.invoke(initial_state)
+        
+        # Extract the final response
+        messages = result.get("messages", [])
+        if not messages:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No response from agent"
+            )
+        
+        # Get the last AI message
+        last_message = messages[-1]
+        response_text = last_message.content
+        
+        # Build conversation history
+        conversation_history = []
+        for msg in messages:
+            if hasattr(msg, "type"):
+                role = msg.type
+            elif hasattr(msg, "__class__"):
+                role = msg.__class__.__name__.lower().replace("message", "")
+            else:
+                role = "unknown"
+            
+            conversation_history.append(
+                ChatMessage(role=role, content=msg.content)
+            )
+        
+        logger.info(f"Agent response: {response_text[:50]}...")
+        
+        return ChatResponse(
+            response=response_text,
+            conversation_history=conversation_history
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in agent chat: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing request: {str(e)}"
+        )
+
+
+@router.post("/query", response_model=SimpleQueryResponse)
+async def simple_query(request: SimpleQueryRequest) -> SimpleQueryResponse:
+    """
+    Simple query endpoint without conversation history.
+    
+    This endpoint is useful for one-off questions without maintaining
+    conversation context.
+    
+    Args:
+        request: Simple query request
+    
+    Returns:
+        Agent's answer
+    
+    Example:
+        POST /agent/query
+        {
+            "query": "What is 10 + 5?"
+        }
+    """
+    try:
+        logger.info(f"Received query: {request.query[:50]}...")
+        
+        # Create initial state
+        initial_state = {
+            "messages": [HumanMessage(content=request.query)]
+        }
+        
+        # Run the workflow
+        result = graph.invoke(initial_state)
+        
+        # Extract response
+        messages = result.get("messages", [])
+        if not messages:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="No response from agent"
+            )
+        
+        answer = messages[-1].content
+        logger.info(f"Agent answer: {answer[:50]}...")
+        
+        return SimpleQueryResponse(answer=answer)
+        
+    except Exception as e:
+        logger.error(f"Error in simple query: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error processing query: {str(e)}"
+        )
+
+
+__all__ = ["router"]
+

@@ -6,6 +6,7 @@
   "email": "meier.thales@gmail.com",
   "python_version": "3.14",
   "backend_port": 8000,
+  "use_postgres": "y",
   "use_supabase": "y",
   "ai_project": "y",
   "use_celery": "y",

@@ -1,0 +1,53 @@
+"""
+Schema models for Celery task endpoints.
+"""
+from typing import Dict, Any, Optional, List
+from pydantic import BaseModel, Field
+
+
+class TaskSubmitRequest(BaseModel):
+    """Request model for submitting a task."""
+    task_name: str = Field(..., description="Name of the task to execute")
+    args: list = Field(default=[], description="Positional arguments for the task")
+    kwargs: Dict[str, Any] = Field(default={}, description="Keyword arguments for the task")
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{
+                "task_name": "app.worker.tasks.add_numbers",
+                "args": [5, 3],
+                "kwargs": {}
+            }]
+        }
+    }
+
+
+class TaskSubmitResponse(BaseModel):
+    """Response model for task submission."""
+    task_id: str = Field(..., description="Unique task identifier")
+    status: str = Field(default="submitted", description="Task submission status")
+
+
+class TaskStatusResponse(BaseModel):
+    """Response model for task status."""
+    task_id: str
+    state: str
+    ready: bool
+    successful: Optional[bool]
+    result: Optional[Any]
+    error: Optional[str]
+
+
+class TaskRevokeResponse(BaseModel):
+    """Response model for task revocation."""
+    task_id: str
+    status: str
+
+
+__all__ = [
+    "TaskSubmitRequest",
+    "TaskSubmitResponse",
+    "TaskStatusResponse",
+    "TaskRevokeResponse",
+]
+
