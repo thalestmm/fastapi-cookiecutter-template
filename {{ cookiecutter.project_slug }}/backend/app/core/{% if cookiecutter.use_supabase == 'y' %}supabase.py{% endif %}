@@ -42,6 +42,9 @@ def create_user_client(access_token: str) -> Client:
 
     Returns:
         A Supabase client configured with the user's access token
+    """
+    logger.info("Instantiating supabase user client") 
+    
     # Create client with anon key
     client = create_client(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY)
 
