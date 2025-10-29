@@ -22,14 +22,28 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
-    command: redis-server --appendonly yes
+    command: redis-server --save 60 1 --loglevel warning
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "redis-cli ping | grep PONG"]
+      interval: 30s
+      timeout: 10s
       retries: 5
+      start_period: 30s
     networks:
       - app-network
+  
+  celery_worker:
+    build: 
+      context: .
+      dockerfile: backend/Dockerfile
+    command: celery -A worker worker --loglevel=info
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
   {% endif %}
 
   backend:
@@ -41,6 +55,13 @@ services:
       - "{{ cookiecutter.backend_port }}:{{ cookiecutter.backend_port }}"
     environment:
       - ENVIRONMENT=${ENVIRONMENT}
+    {% if cookiecutter.use_celery == 'y' %}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    {% endif %}
 
 volumes:
   {% if cookiecutter.use_celery == 'y' %}
