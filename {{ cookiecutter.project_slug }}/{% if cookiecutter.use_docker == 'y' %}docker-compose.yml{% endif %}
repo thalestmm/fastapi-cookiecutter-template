@@ -1,5 +1,21 @@
 services:
   {% if cookiecutter.use_celery == 'y' %}
+  rabbitmq:
+    image: rabbitmq:3-management
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
   redis:
     image: redis:7-alpine
     ports:
@@ -24,11 +40,12 @@ services:
     ports:
       - "{{ cookiecutter.backend_port }}:{{ cookiecutter.backend_port }}"
     environment:
-    - ENVIRONMENT=${ENVIRONMENT}
+      - ENVIRONMENT=${ENVIRONMENT}
 
 volumes:
   {% if cookiecutter.use_celery == 'y' %}
   redis_data:
+  rabbitmq_data:
   {% endif %}
 
 networks:
