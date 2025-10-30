@@ -39,3 +39,7 @@ sqlalchemy
 psycopg2-binary
 alembic
 {% endif %}
+
+# CLI Tools
+typer
+rich
